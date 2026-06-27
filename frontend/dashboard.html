@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MCP AWS — Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f4f4f5; }
+    header { background: #1e293b; color: #fff; padding: .9rem 1.5rem; display: flex; justify-content: space-between; align-items: center; }
+    header h1 { font-size: 1.1rem; }
+    header span { font-size: .85rem; color: #94a3b8; }
+    header button { background: none; border: 1px solid #475569; color: #cbd5e1; padding: .35rem .8rem; border-radius: 5px; cursor: pointer; font-size: .8rem; }
+    header button:hover { background: #334155; }
+    main { max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
+    h2 { font-size: 1.1rem; color: #1e293b; margin-bottom: 1rem; }
+    .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08); padding: 1.5rem; margin-bottom: 1.5rem; }
+    label { display: block; font-size: .82rem; color: #444; margin-bottom: .2rem; margin-top: .8rem; }
+    input, select { width: 100%; padding: .55rem .7rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: .9rem; }
+    input:focus, select:focus { outline: none; border-color: #2563eb; }
+    .btn-primary { background: #2563eb; color: #fff; border: none; padding: .6rem 1.2rem; border-radius: 6px; cursor: pointer; font-size: .9rem; margin-top: 1rem; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-danger { background: #ef4444; color: #fff; border: none; padding: .3rem .7rem; border-radius: 5px; cursor: pointer; font-size: .8rem; }
+    .btn-danger:hover { background: #dc2626; }
+    table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+    th { text-align: left; padding: .5rem .6rem; border-bottom: 2px solid #e5e7eb; color: #6b7280; font-weight: 600; }
+    td { padding: .55rem .6rem; border-bottom: 1px solid #f3f4f6; }
+    .empty { color: #9ca3af; font-size: .88rem; padding: .5rem 0; }
+    .msg { padding: .5rem .8rem; border-radius: 5px; font-size: .83rem; margin-top: .5rem; }
+    .msg.error { background: #fee2e2; color: #b91c1c; }
+    .msg.success { background: #dcfce7; color: #166534; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>MCP AWS</h1>
+    <div>
+      <span id="user-email"></span>
+      <button onclick="logout()" style="margin-left:1rem">Sair</button>
+    </div>
+  </header>
+
+  <main>
+    <h2>Tokens AWS</h2>
+
+    <div class="card">
+      <strong>Adicionar token</strong>
+      <label>Label (nome de identificação)</label>
+      <input id="t-label" placeholder="ex: conta-pessoal" />
+      <label>Access Key ID</label>
+      <input id="t-key" placeholder="AKIA..." />
+      <label>Secret Access Key</label>
+      <input id="t-secret" type="password" placeholder="••••••••••••••••" />
+      <label>Região</label>
+      <select id="t-region">
+        <option value="us-east-1">us-east-1 (N. Virginia)</option>
+        <option value="us-east-2">us-east-2 (Ohio)</option>
+        <option value="us-west-2">us-west-2 (Oregon)</option>
+        <option value="sa-east-1">sa-east-1 (São Paulo)</option>
+        <option value="eu-west-1">eu-west-1 (Irlanda)</option>
+      </select>
+      <div id="add-msg" class="msg" style="display:none"></div>
+      <button class="btn-primary" onclick="addToken()">Salvar token</button>
+    </div>
+
+    <div class="card">
+      <strong>Tokens cadastrados</strong>
+      <div id="token-list" style="margin-top:.8rem">
+        <div class="empty">Carregando...</div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const API = '/api';
+    const token = () => localStorage.getItem('token');
+
+    async function req(path, opts = {}) {
+      const res = await fetch(API + path, {
+        ...opts,
+        headers: { 'Authorization': 'Bearer ' + token(), 'Content-Type': 'application/json', ...(opts.headers || {}) },
+      });
+      if (res.status === 401) { logout(); return null; }
+      return res.ok ? res.json() : res.json().then(d => Promise.reject(d));
+    }
+
+    async function init() {
+      if (!token()) return (window.location.href = '/');
+      try {
+        const me = await req('/auth/me');
+        if (me) document.getElementById('user-email').textContent = me.email;
+      } catch (_) { logout(); }
+      loadTokens();
+    }
+
+    async function loadTokens() {
+      const list = document.getElementById('token-list');
+      try {
+        const tokens = await req('/tokens/');
+        if (!tokens || tokens.length === 0) {
+          list.innerHTML = '<div class="empty">Nenhum token cadastrado.</div>';
+          return;
+        }
+        list.innerHTML = `<table>
+          <thead><tr><th>Label</th><th>Access Key</th><th>Região</th><th></th></tr></thead>
+          <tbody>${tokens.map(t => `
+            <tr>
+              <td>${t.label}</td>
+              <td><code>${t.access_key_id.slice(0,8)}...${t.access_key_id.slice(-4)}</code></td>
+              <td>${t.region}</td>
+              <td><button class="btn-danger" onclick="deleteToken('${t.id}')">Remover</button></td>
+            </tr>`).join('')}
+          </tbody></table>`;
+      } catch (_) {
+        list.innerHTML = '<div class="empty">Erro ao carregar tokens.</div>';
+      }
+    }
+
+    async function addToken() {
+      const msgEl = document.getElementById('add-msg');
+      const body = {
+        label: document.getElementById('t-label').value.trim(),
+        access_key_id: document.getElementById('t-key').value.trim(),
+        secret_access_key: document.getElementById('t-secret').value.trim(),
+        region: document.getElementById('t-region').value,
+      };
+      if (!body.label || !body.access_key_id || !body.secret_access_key) {
+        return showMsg(msgEl, 'Preencha todos os campos.', 'error');
+      }
+      try {
+        await req('/tokens/', { method: 'POST', body: JSON.stringify(body) });
+        showMsg(msgEl, 'Token salvo com sucesso!', 'success');
+        document.getElementById('t-label').value = '';
+        document.getElementById('t-key').value = '';
+        document.getElementById('t-secret').value = '';
+        loadTokens();
+      } catch (e) {
+        showMsg(msgEl, e.detail || 'Erro ao salvar.', 'error');
+      }
+    }
+
+    async function deleteToken(id) {
+      if (!confirm('Remover este token?')) return;
+      await req('/tokens/' + id, { method: 'DELETE' });
+      loadTokens();
+    }
+
+    function showMsg(el, text, type) {
+      el.textContent = text;
+      el.className = 'msg ' + type;
+      el.style.display = 'block';
+      setTimeout(() => el.style.display = 'none', 4000);
+    }
+
+    function logout() {
+      localStorage.removeItem('token');
+      window.location.href = '/';
+    }
+
+    init();
+  </script>
+</body>
+</html>

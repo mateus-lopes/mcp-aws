@@ -11,5 +11,6 @@ class AWSToken(Base):
     label = Column(String, nullable=False)
     access_key_id = Column(String, nullable=False)
     secret_access_key = Column(String, nullable=False)
+    session_token = Column(String, nullable=True)
     region = Column(String, nullable=False, default="us-east-1")
     created_at = Column(DateTime(timezone=True), server_default=func.now())

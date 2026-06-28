@@ -10,6 +10,7 @@ def _ec2_client(token: AWSToken):
             "ec2",
             aws_access_key_id=token.access_key_id,
             aws_secret_access_key=token.secret_access_key,
+            aws_session_token=token.session_token,
             region_name=token.region,
         )
     except Exception as e:

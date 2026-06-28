@@ -31,7 +31,9 @@ app.include_router(ec2.router, prefix="/api")
 FRONTEND_DIR = Path(__file__).parent.parent.parent / "frontend"
 
 if FRONTEND_DIR.exists():
-    app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR / "static")), name="static")
+    STATIC_DIR = FRONTEND_DIR / "static"
+    if STATIC_DIR.exists():
+        app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
     @app.get("/", include_in_schema=False)
     def serve_index():

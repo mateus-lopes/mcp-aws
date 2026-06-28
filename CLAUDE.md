@@ -140,8 +140,14 @@ As tabelas são criadas automaticamente no startup via `Base.metadata.create_all
 | label | VARCHAR | Nome descritivo |
 | access_key_id | VARCHAR | Credencial AWS |
 | secret_access_key | VARCHAR | Credencial AWS (plain text) |
+| session_token | TEXT | Nullable — obrigatório para chaves `ASIA*` (AWS Academy / STS) |
 | region | VARCHAR | Padrão: `us-east-1` |
 | created_at | TIMESTAMP | server_default |
+
+> **Atenção:** a coluna `session_token` foi adicionada via `ALTER TABLE` após a criação inicial da tabela. Em ambientes novos, o `create_all` já a cria automaticamente. Em bancos existentes sem a coluna, executar:
+> ```sql
+> ALTER TABLE aws_tokens ADD COLUMN IF NOT EXISTS session_token TEXT;
+> ```
 
 ---
 
@@ -166,11 +172,29 @@ Toda senha cadastrada ou verificada passa por `_encode_password` antes do bcrypt
 - Payload: `{ sub: user_id, exp: now + ACCESS_TOKEN_EXPIRE_MINUTES }`
 - Verificado em todo request autenticado via `get_current_user` (dependency injection)
 
+### Credenciais temporárias AWS (STS / AWS Academy)
+
+Chaves que começam com `ASIA*` são temporárias e exigem um `session_token` além de `access_key_id` e `secret_access_key`. O campo é opcional no modelo — se omitido, o boto3 tenta autenticar sem ele (funciona para chaves `AKIA*` permanentes).
+
+O `_ec2_client` já repassa o token para o boto3:
+
+```python
+boto3.client("ec2",
+    aws_access_key_id=token.access_key_id,
+    aws_secret_access_key=token.secret_access_key,
+    aws_session_token=token.session_token,   # None quando não informado
+    region_name=token.region,
+)
+```
+
+O dashboard exibe um badge amarelo **temp** ao lado do label quando o token possui `session_token`, indicando que são credenciais temporárias que expiram.
+
 ### Pontos de atenção para produção
 
-- `secret_access_key` AWS é armazenado em **plain text** no banco — considerar criptografia em repouso (ex: AWS KMS ou Fernet)
+- `secret_access_key` e `session_token` AWS são armazenados em **plain text** no banco — considerar criptografia em repouso (ex: AWS KMS ou Fernet)
 - CORS está aberto para qualquer origem (`allow_origins=["*"]`) — restringir ao domínio real
 - `SECRET_KEY` do JWT precisa ser uma string longa e aleatória (nunca o valor do `.env.example`)
+- Credenciais `ASIA*` do AWS Academy expiram periodicamente — ao receber `InvalidClientTokenId` ou `ExpiredTokenException`, cadastrar um novo token com as credenciais atualizadas
 
 ---
 
@@ -179,7 +203,7 @@ Toda senha cadastrada ou verificada passa por `_encode_password` antes do bcrypt
 Dois arquivos HTML puros, sem bundler ou framework. O FastAPI serve eles diretamente via `FileResponse`.
 
 - **`index.html`**: toggle entre login e cadastro. Após login, salva o JWT em `localStorage` e redireciona para `/dashboard`.
-- **`dashboard.html`**: lista tokens AWS cadastrados, permite adicionar e remover. Usa função `req()` helper que injeta o Bearer token automaticamente em todas as chamadas e faz logout automático em 401.
+- **`dashboard.html`**: lista tokens AWS cadastrados, permite adicionar e remover. Formulário inclui campo `session_token` (textarea, pois o valor é longo — 500+ caracteres). Tokens com session token recebem badge **temp** na listagem. Usa função `req()` helper que injeta o Bearer token automaticamente em todas as chamadas e faz logout automático em 401.
 
 Se for adicionar arquivos estáticos (CSS, JS separados), criar `frontend/static/` — o `main.py` já verifica a existência desse diretório antes de montar.
 
@@ -226,3 +250,12 @@ uvicorn app.main:app --reload --port 8000
 
 **Backend não encontra o `.env`**
 → `config.py` usa path absoluto (`ROOT_DIR = Path(__file__).resolve().parents[3]`). O `.env` deve estar na raiz do repositório, não dentro de `backend/`.
+
+**"InvalidClientTokenId" ou "ExpiredTokenException" ao listar/criar EC2**
+→ Credenciais temporárias (`ASIA*`) do AWS Academy expiraram. Obter novas credenciais no painel do Academy e atualizar o `session_token` do token cadastrado via `PUT /api/tokens/{id}` ou diretamente no banco:
+```sql
+UPDATE aws_tokens SET access_key_id = '...', secret_access_key = '...', session_token = '...' WHERE id = '...';
+```
+
+**"cannot be stopped as it has never reached the 'running' state"**
+→ Comportamento esperado da AWS — instância ainda em `pending`. Aguardar o estado `running` antes de tentar parar.

@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pathlib import Path
 from app.core.database import engine, Base
-from app.api.routes import auth, tokens, ec2
+from app.api.routes import auth, tokens, ec2, s3, rds, vpc, alb, iam
 import app.models.user  # noqa: F401
 import app.models.aws_token  # noqa: F401
 
@@ -27,6 +27,11 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api")
 app.include_router(tokens.router, prefix="/api")
 app.include_router(ec2.router, prefix="/api")
+app.include_router(s3.router, prefix="/api")
+app.include_router(rds.router, prefix="/api")
+app.include_router(vpc.router, prefix="/api")
+app.include_router(alb.router, prefix="/api")
+app.include_router(iam.router, prefix="/api")
 
 FRONTEND_DIR = Path(__file__).parent.parent.parent / "frontend"
 

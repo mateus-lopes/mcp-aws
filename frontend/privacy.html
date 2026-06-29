@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MCP AWS - Privacy Policy</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f4f4f5; color: #18181b; line-height: 1.55; }
+    main { max-width: 820px; margin: 0 auto; padding: 3rem 1.25rem; }
+    h1 { font-size: 2rem; margin-bottom: .5rem; }
+    h2 { font-size: 1.15rem; margin-top: 2rem; margin-bottom: .5rem; }
+    p, li { color: #3f3f46; font-size: .98rem; }
+    ul { margin-left: 1.25rem; }
+    a { color: #2563eb; }
+    .updated { color: #71717a; margin-bottom: 1.5rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: June 29, 2026</p>
+
+    <p>
+      MCP AWS lets authenticated users connect their own AWS credentials and manage AWS resources through a web dashboard, API, or GPT Action.
+      This policy explains what data is handled by the service.
+    </p>
+
+    <h2>Information We Collect</h2>
+    <ul>
+      <li>Account information, such as email address and hashed password.</li>
+      <li>AWS credential records voluntarily added by the user, including access key ID, secret access key, optional session token, label, and AWS region.</li>
+      <li>OAuth authorization codes and access tokens used to connect a GPT Action to the user's MCP AWS account.</li>
+    </ul>
+
+    <h2>How We Use Information</h2>
+    <p>
+      Data is used to authenticate users, associate each GPT Action request with the correct MCP AWS user, and perform AWS operations only with the AWS credentials that user configured.
+    </p>
+
+    <h2>GPT Action Access</h2>
+    <p>
+      When OAuth is enabled, ChatGPT sends an access token to MCP AWS. The API uses that token to identify the authenticated MCP AWS user.
+      The GPT Action does not receive another user's AWS credentials through this service.
+    </p>
+
+    <h2>AWS Credentials</h2>
+    <p>
+      AWS credentials are stored so the API can call AWS services on behalf of the authenticated user. Users should provide least-privilege AWS credentials and remove credentials that are no longer needed.
+    </p>
+
+    <h2>Data Sharing</h2>
+    <p>
+      MCP AWS sends requests to AWS APIs as required to perform user-requested actions. The service does not sell user data.
+    </p>
+
+    <h2>User Control</h2>
+    <p>
+      Users can remove AWS credential records from the dashboard or API. Removing a credential prevents future AWS calls using that stored credential.
+    </p>
+
+    <h2>Security</h2>
+    <p>
+      Passwords are hashed before storage. OAuth tokens are stored as hashes. AWS credentials should be treated as sensitive secrets and access should be limited to trusted deployments.
+    </p>
+
+    <h2>Contact</h2>
+    <p>
+      For questions about this policy, contact the MCP AWS administrator responsible for this deployment.
+    </p>
+  </main>
+</body>
+</html>

@@ -24,6 +24,10 @@ def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(_encode_password(plain), hashed.encode())
 
 
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
 def create_access_token(user_id: str) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {"sub": user_id, "exp": expire}
@@ -35,16 +39,33 @@ def get_current_user(
     db: Session = Depends(get_db),
 ):
     from app.models.user import User
+    from app.models.oauth import OAuthAccessToken
 
+    raw_token = credentials.credentials
     try:
-        payload = jwt.decode(credentials.credentials, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(raw_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: str = payload.get("sub")
         if not user_id:
             raise ValueError
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuário não encontrado")
+        return user
     except (JWTError, ValueError):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido ou expirado")
+        pass
 
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuário não encontrado")
-    return user
+    oauth_token = (
+        db.query(OAuthAccessToken)
+        .filter(
+            OAuthAccessToken.token_hash == hash_token(raw_token),
+            OAuthAccessToken.revoked_at.is_(None),
+            OAuthAccessToken.expires_at > datetime.now(timezone.utc),
+        )
+        .first()
+    )
+    if oauth_token:
+        user = db.query(User).filter(User.id == oauth_token.user_id).first()
+        if user:
+            return user
+
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido ou expirado")

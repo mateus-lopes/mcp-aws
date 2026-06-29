@@ -22,7 +22,7 @@ git clone https://github.com/seu-usuario/mcp-aws.git
 cd mcp-aws
 
 cp .env.example .env
-# edite o .env e troque SECRET_KEY por uma string aleatória longa
+# edite o .env e troque SECRET_KEY e OAUTH_CLIENT_SECRET por strings aleatórias longas
 ```
 
 ### 2. Subir o banco de dados
@@ -91,9 +91,81 @@ Use essa URL (`https://abc123.ngrok-free.app`) para configurar o Custom GPT.
 
 1. Acesse https://chat.openai.com e crie um novo GPT
 2. Vá em **Configure → Actions → Create new action**
-3. Em **Schema**, cole a URL do OpenAPI: `https://SUA-URL-NGROK/openapi.json`
-4. Em **Authentication**, escolha **API Key** e configure como `Bearer` — o usuário cola o JWT obtido no login
-5. Salve e teste pedindo ao GPT para listar instâncias EC2
+3. Em **Schema**, cole a URL do OpenAPI filtrado para GPT Actions: `https://SUA-URL-NGROK/openapi-gpt.json`
+4. Em **Authentication**, escolha **OAuth**
+5. Configure:
+   - Client ID: valor de `OAUTH_CLIENT_ID`
+   - Client Secret: valor de `OAUTH_CLIENT_SECRET`
+   - Authorization URL: `https://SUA-URL-NGROK/oauth/authorize`
+   - Token URL: `https://SUA-URL-NGROK/oauth/token`
+   - Scope: `aws`
+   - Token Exchange Method: `Default (POST request)`
+6. Copie a URL de callback/redirect exibida pelo GPT e coloque em `OAUTH_ALLOWED_REDIRECT_URIS`
+7. Reinicie a API e teste pedindo ao GPT para listar instâncias EC2
+
+O OAuth autentica o usuário no MCP AWS, não diretamente na AWS. Depois do login, a API usa apenas os tokens AWS cadastrados para aquele usuário.
+
+### Campos sugeridos para o GPT
+
+**Name**
+
+```text
+MCP AWS
+```
+
+**Description**
+
+```text
+Gerencie recursos AWS do usuário autenticado via MCP AWS, incluindo EC2, S3, RDS, VPC, ALB/NLB, IAM e credenciais AWS cadastradas.
+```
+
+**Instructions**
+
+```text
+Você é um assistente para gerenciamento de recursos AWS usando a API MCP AWS.
+
+Use sempre as Actions configuradas para consultar ou executar operações na AWS. As Actions já autenticam o usuário via OAuth; nunca peça, armazene ou exponha credenciais AWS diretamente na conversa.
+
+Antes de executar ações destrutivas ou com custo, como criar instâncias, parar serviços, terminar EC2, remover buckets, deletar instâncias RDS, remover targets ou criar/deletar access keys IAM, explique brevemente o impacto e peça confirmação explícita.
+
+Quando uma operação exigir token_id, liste os tokens AWS cadastrados do usuário e peça que ele escolha qual conta/região usar caso isso não esteja claro.
+
+Antes de criar uma EC2, use /api/ec2/images para buscar um AMI ID válido na região do token escolhido. Não invente AMI IDs.
+
+Nunca tente acessar recursos de outro usuário. Considere apenas os dados retornados pela API para o usuário autenticado.
+
+Se uma chamada AWS falhar por permissão, região, credenciais expiradas ou token temporário ausente, explique o erro de forma objetiva e diga qual credencial/configuração o usuário deve revisar no MCP AWS.
+```
+
+**Conversation starters**
+
+```text
+Liste minhas instâncias EC2
+```
+
+```text
+Quais buckets S3 existem na minha conta?
+```
+
+```text
+Mostre quem sou eu na AWS com o token configurado
+```
+
+```text
+Liste meus tokens AWS cadastrados
+```
+
+**Action**
+
+```text
+Schema URL: https://SUA-URL-NGROK/openapi-gpt.json
+Privacy policy: https://SUA-URL-NGROK/privacy
+Authentication: OAuth
+Authorization URL: https://SUA-URL-NGROK/oauth/authorize
+Token URL: https://SUA-URL-NGROK/oauth/token
+Scope: aws
+Token Exchange Method: Default (POST request)
+```
 
 ---
 
@@ -160,6 +232,7 @@ Todas as rotas autenticadas exigem `Authorization: Bearer <token>` no header.
 | Método | Rota | Auth | Descrição |
 |--------|------|------|-----------|
 | GET | `/api/ec2/instances` | Sim | Listar instâncias |
+| GET | `/api/ec2/images` | Sim | Listar AMIs recentes por sistema operacional |
 | POST | `/api/ec2/instances` | Sim | Criar instância |
 | POST | `/api/ec2/instances/start` | Sim | Iniciar instância |
 | POST | `/api/ec2/instances/stop` | Sim | Parar instância |

@@ -1,0 +1,26 @@
+aws_region   = "us-east-1"
+project_name = "mcp-aws"
+environment  = "dev"
+
+instance_type    = "t3.micro"
+desired_capacity = 1
+min_size         = 1
+max_size         = 2
+
+db_instance_class    = "db.t4g.micro"
+db_allocated_storage = 20
+db_multi_az          = false
+
+container_image_tag = "latest"
+
+# Leave empty for the first HTTP-only ALB test.
+# For GPT Actions in production, use an HTTPS domain and set this to https://your-domain.com.
+public_base_url = ""
+certificate_arn = ""
+
+# Fill after the GPT Action shows its callback URL.
+oauth_allowed_redirect_uris = []
+
+# AWS Academy/VocLabs often blocks iam:CreateRole. If so, set this to the lab profile.
+# Common values are "LabInstanceProfile" or a profile provided by your lab instructions.
+existing_instance_profile_name = ""

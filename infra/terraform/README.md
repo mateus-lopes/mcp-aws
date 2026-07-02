@@ -39,8 +39,10 @@ Edit `terraform.tfvars` if needed.
 For the first deploy, you can leave:
 
 ```hcl
-public_base_url = ""
-certificate_arn = ""
+public_base_url  = ""
+certificate_arn  = ""
+domain_name      = ""
+hosted_zone_name = ""
 oauth_allowed_redirect_uris = []
 ```
 
@@ -52,11 +54,47 @@ existing_instance_profile_name = "LabInstanceProfile"
 
 If your lab uses a different profile name, use the name shown in the AWS Academy lab instructions.
 
-That exposes the app through the ALB DNS over HTTP. GPT Actions require HTTPS for the final configuration, so later use a domain plus ACM certificate and set:
+That exposes the app through the ALB DNS over HTTP. GPT Actions require HTTPS for the final configuration. The ALB default DNS name cannot get a valid ACM certificate, so use your own domain.
+
+If the domain is hosted in Route 53, set:
 
 ```hcl
-public_base_url = "https://your-domain.com"
+domain_name      = "api.example.com"
+hosted_zone_name = "example.com"
+```
+
+Terraform will create the ACM certificate, validate it with DNS, create an Alias record pointing to the ALB, expose HTTPS on port 443, and redirect HTTP to HTTPS. The public outputs will use `https://api.example.com`.
+
+If you already have an ACM certificate, set it manually:
+
+```hcl
+public_base_url = "https://api.example.com"
 certificate_arn = "arn:aws:acm:us-east-1:ACCOUNT_ID:certificate/..."
+```
+
+### Using Cloudflare DNS
+
+If your DNS is managed by Cloudflare, do not set `hosted_zone_name`. Create and validate the ACM certificate manually, then point Cloudflare to the ALB:
+
+1. In AWS Certificate Manager, request a public certificate for your domain, for example `example.com`.
+2. Choose DNS validation and copy the CNAME validation record shown by ACM.
+3. In Cloudflare DNS, create that validation CNAME with proxy disabled, meaning DNS only.
+4. After ACM shows the certificate as issued, copy its ARN.
+5. In Cloudflare DNS, create a CNAME from `@` to the ALB DNS name. Cloudflare will flatten this record at the root domain. You can start with DNS only while testing.
+6. In Cloudflare SSL/TLS, use Full (strict), not Flexible.
+
+Then set:
+
+```hcl
+public_base_url = "https://example.com"
+certificate_arn = "arn:aws:acm:us-east-1:ACCOUNT_ID:certificate/..."
+```
+
+Keep these empty when using Cloudflare:
+
+```hcl
+domain_name      = ""
+hosted_zone_name = ""
 ```
 
 ## 2. Create ECR First
@@ -149,6 +187,29 @@ After ChatGPT shows the OAuth callback URL, add it to `oauth_allowed_redirect_ur
 
 ```bash
 terraform apply
+```
+
+## Recovering An Existing HTTP Listener
+
+If you enabled HTTPS after the first HTTP-only deploy and Terraform reports `DuplicateListener` on port `80`, import the existing HTTP listener before applying again:
+
+```bash
+terraform import aws_lb_listener.http arn:aws:elasticloadbalancing:us-east-1:ACCOUNT_ID:listener/app/ALB_NAME/ALB_ID/LISTENER_ID
+terraform apply
+```
+
+You can find the listener ARN with:
+
+```bash
+aws elbv2 describe-listeners \
+  --region us-east-1 \
+  --load-balancer-arn "$(aws elbv2 describe-load-balancers \
+    --region us-east-1 \
+    --names mcp-aws-dev-alb \
+    --query 'LoadBalancers[0].LoadBalancerArn' \
+    --output text)" \
+  --query 'Listeners[?Port==`80`].ListenerArn' \
+  --output text
 ```
 
 ## Notes

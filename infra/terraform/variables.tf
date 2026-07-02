@@ -96,7 +96,7 @@ variable "container_image_tag" {
 
 variable "public_base_url" {
   type        = string
-  description = "Public URL used by OpenAPI servers and OAuth callbacks. Leave empty to use the ALB DNS over HTTP."
+  description = "Public URL used by OpenAPI servers and OAuth callbacks. Leave empty to derive it from domain_name or the ALB DNS."
   default     = ""
 }
 
@@ -109,6 +109,18 @@ variable "oauth_allowed_redirect_uris" {
 variable "certificate_arn" {
   type        = string
   description = "Optional ACM certificate ARN. When set, the ALB exposes HTTPS on 443 and redirects HTTP to HTTPS."
+  default     = ""
+}
+
+variable "domain_name" {
+  type        = string
+  description = "Optional public domain name for the app, for example api.example.com. When used with hosted_zone_name, Terraform creates DNS and an ACM certificate."
+  default     = ""
+}
+
+variable "hosted_zone_name" {
+  type        = string
+  description = "Optional Route 53 hosted zone name, for example example.com. Required for automatic DNS record and ACM validation."
   default     = ""
 }
 

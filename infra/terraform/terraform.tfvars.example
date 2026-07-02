@@ -13,10 +13,12 @@ db_multi_az          = false
 
 container_image_tag = "latest"
 
-# Leave empty for the first HTTP-only ALB test.
-# For GPT Actions in production, use an HTTPS domain and set this to https://your-domain.com.
-public_base_url = ""
-certificate_arn = ""
+# Leave these empty for the first HTTP-only ALB test.
+# For HTTPS, use a domain in Route 53 and set domain_name + hosted_zone_name.
+public_base_url  = ""
+certificate_arn  = ""
+domain_name      = ""
+hosted_zone_name = ""
 
 # Fill after the GPT Action shows its callback URL.
 oauth_allowed_redirect_uris = []
